@@ -139,12 +139,12 @@ def get_stories():
             if not isTarget(item['stories'][0]['owner_id']):
                 continue
 
-            if isStored(item['id']):
-                continue
-
-            store(item['id'])
-
             for j in range(0, len(item['stories'])):
+                if isStored(item['stories'][j]['id']):
+                    continue
+
+                store(item['stories'][j]['id'])
+                
                 photo = video = ''
                 story = item['stories'][j]
 
