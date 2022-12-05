@@ -29,26 +29,45 @@ def get_posts():
         url = f"https://api.vk.com/method/wall.get?v=5.131&access_token={APP_TOKEN}&scope=photos,audio&owner_id={TARGET_ID}"
         response = requests.get(url).json()
 
-        result = []
-        items = response['response']['items']
+        result = [{
+            'videos': [],
+            'photos': [],
+        }]
 
-        for i in range(0, len(items)):
-            item = items[i]
+        posts = response['response']['items']
+        store_index = 0
+        post_is_filled = False
+        photos_is_filled = False
 
-            if isStored(item['hash']):
+        for post_index in range(0, len(posts)): 
+            post = posts[post_index]
+
+            if isStored(post['hash']):
                 continue
 
-            for attachment in item['attachments']:
+            if post_is_filled:
+                store_index += 1
+                result.append({
+                    'videos': [],
+                    'photos': [],
+                })
+                post_is_filled = False
+
+            for attachment_index in range(0, len(post['attachments'])):
+                attachment = post['attachments'][attachment_index]
+                
                 if attachment['type'] == 'photo':
                     photo = get_highest_quality_photo(attachment['photo']['sizes'])
+                    result[store_index]['photos'].append(photo)
+                    photos_is_filled = True
 
-            store(item['hash'])
+            if photos_is_filled:
+                photos_is_filled = False
+                post_is_filled = True
+            
+            store(post['hash'])
 
-            if len(result) < i + 1:
-                result.append({})
-
-            result[i]['photo'] = photo
-
+        print(result)
         return result
     except:
         log('Error while getting posts', 'get_posts')
@@ -170,21 +189,25 @@ async def scheduled(wait_for):
     while True:
         await asyncio.sleep(wait_for)
 
-        try:
-            posts = get_posts()
-            stories = get_stories()
+        posts = get_posts()
+        stories = get_stories()
 
-            for post in posts:
-                await bot.send_photo(CHAT_ID, post['photo'])
+        for post in posts:
+            if len(post['photos']) > 1:
+                media = types.MediaGroup()
 
-            for story in stories:
-                if 'video' in story:
-                    await bot.send_video(CHAT_ID, story['video'])
-                elif 'photo' in story:
-                    await bot.send_video(CHAT_ID, story['video'])
-        except:
-            log('Something went wrong! Error...', 'scheduled')
-            print('Error...')
+                for photo in post['photos']:
+                    media.attach_photo(photo)
+
+                await bot.send_media_group(CHAT_ID, media=media)
+            else:
+                await bot.send_photo(CHAT_ID, post['photos'][0])
+
+        for story in stories:
+            if 'video' in story:
+                await bot.send_video(CHAT_ID, story['video'])
+            elif 'photo' in story:
+                await bot.send_video(CHAT_ID, story['video'])
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()

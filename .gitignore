@@ -1,3 +1,5 @@
 hashes.txt
 main.py
 config.py
+logs.txt
+__pycache__/
